@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>실시간 방 시스템</title>
+  <style>
+    /* Reset & 기본 */
+    /* Reset & 기본 */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+      color: #f0f0f5;
+      user-select: none;
+    }
+    #container {
+      max-width: 480px;
+      width: 100%;
+      background: #1e1e2f;
+      border-radius: 20px;
+      padding: 30px 35px;
+      box-shadow: 0 12px 24px rgba(118, 75, 162, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 40px; /* 섹션 사이 간격 */
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2.8rem;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 1.5px;
+      color: #f5f5ff;
+      text-shadow: 0 0 6px #bbaaff;
+    }
+    h2 {
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: #d9d9ff;
+      border-bottom: 2px solid #6e5dfc;
+      padding-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    /* 방 만들기 섹션 */
+    #createRoomSection {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #3c3c50;
+      outline: none;
+      transition: box-shadow 0.25s ease;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      box-shadow: 0 0 8px #a385ff;
+      background: #eee;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 1rem;
+      user-select: none;
+      cursor: pointer;
+      color: #bdbdff;
+      transition: color 0.3s ease;
+    }
+    label:hover {
+      color: #fff;
+    }
+    input[type="radio"] {
+      margin-right: 8px;
+      cursor: pointer;
+      accent-color: #7a63ff;
+      width: 18px;
+      height: 18px;
+      vertical-align: middle;
+    }
+
+    button#createRoom {
+      margin-top: 10px;
+      padding: 14px 0;
+      font-weight: 700;
+      font-size: 1.2rem;
+      border-radius: 14px;
+      border: none;
+      background: linear-gradient(45deg, #7a63ff, #9b84ff);
+      color: white;
+      box-shadow: 0 4px 15px rgba(123, 99, 255, 0.7);
+      cursor: pointer;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      user-select: none;
+    }
+    button#createRoom:disabled {
+      background: #6659aa;
+      cursor: not-allowed;
+      box-shadow: none;
+      color: #bbb;
+    }
+    button#createRoom:not(:disabled):hover {
+      background: linear-gradient(45deg, #9b84ff, #7a63ff);
+      box-shadow: 0 6px 20px rgba(123, 99, 255, 0.9);
+    }
+
+    /* 공개방 목록 */
+    #roomList {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+    #roomList::-webkit-scrollbar {
+      width: 8px;
+    }
+    #roomList::-webkit-scrollbar-thumb {
+      background: #8c80ff;
+      border-radius: 10px;
+    }
+    #roomList > div {
+      background: #2e2e50;
+      padding: 16px 20px;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+      color: #d4d4ff;
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: transform 0.2s ease, box-shadow 0.25s ease;
+      user-select: none;
+    }
+    #roomList > div:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 25px rgba(123, 99, 255, 0.85);
+      background: linear-gradient(135deg, #5d52ff, #927cff);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>🔥 방 시스템 (끄투 스타일)</h1>
+
+    <section id="createRoomSection">
+      <h2>방 만들기</h2>
+      <input id="roomName" type="text" placeholder="방 이름을 입력하세요" autocomplete="off" />
+      <div>
+        <label><input type="radio" name="visibility" value="public" checked> 공개</label>
+        <label style="margin-left:20px;"><input type="radio" name="visibility" value="private"> 비공개</label>
+      </div>
+      <input id="roomPassword" type="password" placeholder="비밀번호를 입력하세요" style="display:none;" autocomplete="off" />
+      <button id="createRoom" disabled>방 생성</button>
+    </section>
+
+    <section>
+<h2>공개방 목록 (실시간)</h2>
+<input id="searchRoom" type="text" placeholder="방 제목 검색..." style="width:100%; padding:8px 12px; margin-bottom:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem;" />
+
+<div id="roomList" style="max-height:320px; overflow-y:auto; padding-right:8px; border-radius:12px; border:1px solid #ccc; background:#fff;">
+  (불러오는 중...)
+</div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // Firebase 설정 - 본인 프로젝트 정보로 바꾸세요
+    const firebaseConfig = {
+      apiKey: "AIzaSyDwTegUMVEfiLymObTxz4Camhtb84RkUtw",
+      authDomain: "draw-f2d10.firebaseapp.com",
+      databaseURL: "https://draw-f2d10-default-rtdb.firebaseio.com",
+      projectId: "draw-f2d10",
+      storageBucket: "draw-f2d10.appspot.com",
+      messagingSenderId: "177556350348",
+      appId: "1:177556350348:web:d8b35cdc76f7b68fa3e2a9",
+      measurementId: "G-9KQRFEKE59"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentUser = null;
+    let currentRoomId = null;
+
+    // 익명 로그인 시도
+    firebase.auth().signInAnonymously().catch(error => {
+      console.error("익명 로그인 실패:", error);
+      alert("로그인 실패: " + error.message);
+    });
+
+    // 로그인 상태 변경 리스너
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+
+    // 방 생성 제한 확인
+    db.ref("rooms").orderByChild("hostId").equalTo(currentUser.uid).once("value", snapshot => {
+      if (snapshot.exists()) {
+        document.getElementById('createRoom').disabled = true;
+        alert("이미 방을 생성하셨습니다. 하나의 방만 만들 수 있습니다.");
+      } else {
+        document.getElementById('createRoom').disabled = false;
+      }
+    });
+
+  } else {
+    currentUser = null;
+    document.getElementById('createRoom').disabled = true;
+  }
+});
+
+    // 공개/비공개 선택 시 비밀번호 입력란 표시 토글
+    document.querySelectorAll('input[name="visibility"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const isPrivate = document.querySelector('input[name="visibility"]:checked').value === 'private';
+        document.getElementById('roomPassword').style.display = isPrivate ? 'inline' : 'none';
+      });
+    });
+
+    // 방 생성 버튼 클릭 이벤트
+document.getElementById('createRoom').onclick = () => {
+  if (!currentUser) {
+    alert("로그인 중입니다. 잠시 후 다시 시도하세요.");
+    return;
+  }
+
+  const name = document.getElementById('roomName').value.trim() || "이름 없는 방";
+  const isPrivate = document.querySelector('input[name="visibility"]:checked').value === 'private';
+  const rawPassword = document.getElementById('roomPassword').value;
+  if (isPrivate && rawPassword.length === 0) {
+    alert("비공개 방에는 비밀번호를 입력해야 합니다.");
+    return;
+  }
+  const password = isPrivate ? btoa(rawPassword) : "";
+  const roomId = "room-" + Date.now();
+
+  const roomData = {
+    name,
+    isPrivate,
+    password,
+    hostId: currentUser.uid,
+    createdAt: Date.now(),
+    members: {
+      [currentUser.uid]: true
+    }
+  };
+    preventRoomDelete = true;
+
+  db.ref("rooms/" + roomId).set(roomData)
+    .then(() => {
+      currentRoomId = roomId;
+       preventRoomDelete = true; 
+      document.getElementById('createRoom').disabled = true;
+      // ✅ 바로 draw.html 로 이동
+      window.location.href = `draw.html?roomId=${roomId}`;
+    })
+    .catch(error => {
+      console.error("방 생성 실패:", error);
+      alert("방 생성에 실패했습니다.");
+    });
+};
+
+    // 실시간 공개방 목록 업데이트
+ const roomList = document.getElementById('roomList');
+ const searchInput = document.getElementById('searchRoom');
+ let allRooms = {}; // 전체 방 데이터 저장용
+
+    db.ref("rooms").on('value', snapshot => {
+      const data = snapshot.val();
+      console.log("rooms 데이터 변경 감지:", data);
+
+      roomList.innerHTML = '';
+
+      if (!data) {
+        roomList.innerHTML = '(생성된 방이 없습니다)';
+        return;
+      }
+
+      Object.entries(data).forEach(([id, room]) => {
+        if (room.isPrivate) return; // 비공개 방은 목록에서 제외
+
+        const div = document.createElement('div');
+        div.textContent = `${room.name} (${Object.keys(room.members || {}).length}명 접속 중)`;
+
+        div.onclick = () => {
+          if (!currentUser) {
+            alert("로그인 중입니다. 잠시만 기다려 주세요.");
+            return;
+          }
+
+          db.ref(`rooms/${id}/members/${currentUser.uid}`).set(true)
+            .then(() => {
+              alert(`"${room.name}" 방에 입장합니다. (roomId: ${id})`);
+              // 향후 실제 그리기 페이지로 이동 시 아래 주석 해제
+              window.location.href = `draw.html?roomId=${id}`;
+            })
+            .catch(err => {
+              console.error("방 입장 중 오류:", err);
+              alert("방 입장에 실패했습니다.");
+            });
+        };
+
+        roomList.appendChild(div);
+      });
+    });
+
+
+
+    function renderRooms() {
+  const filterText = searchInput.value.trim().toLowerCase();
+  roomList.innerHTML = '';
+
+const filtered = Object.entries(allRooms)
+  .filter(([id, room]) => !room.isPrivate)  // 비공개 제외
+  .filter(([id, room]) => (room.name || '').toLowerCase().includes(filterText));
+
+
+  if (filtered.length === 0) {
+    roomList.innerHTML = '(조건에 맞는 방이 없습니다)';
+    return;
+  }
+
+  filtered.forEach(([id, room]) => {
+    const div = document.createElement('div');
+    div.textContent = `${room.name} (${Object.keys(room.members || {}).length}명 접속 중)`;
+    div.style.padding = '10px';
+    div.style.borderBottom = '1px solid #ddd';
+    div.style.cursor = 'pointer';
+    div.addEventListener('click', () => {
+      if (!currentUser) {
+        alert("로그인 중입니다. 잠시만 기다려 주세요.");
+        return;
+      }
+      db.ref(`rooms/${id}/members/${currentUser.uid}`).set(true)
+        .then(() => {
+          alert(`"${room.name}" 방에 입장합니다. (roomId: ${id})`);
+          window.location.href = `draw.html?roomId=${id}`;
+        })
+        .catch(err => {
+          console.error("방 입장 중 오류:", err);
+          alert("방 입장에 실패했습니다.");
+        });
+    });
+    roomList.appendChild(div);
+  });
+}
+
+// 방 목록 DB 실시간 감지
+db.ref("rooms").on('value', snapshot => {
+  allRooms = snapshot.val() || {};
+  renderRooms();
+});
+
+// 검색 input에 이벤트 연결
+searchInput.addEventListener('input', () => {
+  renderRooms();
+});
+
+
+
+// 방 생성 후 페이지 이동 전에 막기
+
+  </script>
+</body>
+</html>

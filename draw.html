@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>그림판 (도구 & 색상 + 이미지 삽입)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+      background: #f5f7fb;
+      display: flex;
+      height: 100vh;
+    }
+
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+    }
+    #header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    #closeBtn {
+      font-size: 1.5rem;
+      background: none;
+      border: none;
+      color: red;
+      cursor: pointer;
+    }
+
+    #canvasContainer {
+      flex: 1;
+      border: 1px solid #ccc;
+      background-image: linear-gradient(#eee 1px, transparent 1px),
+                        linear-gradient(90deg, #eee 1px, transparent 1px);
+      background-size: 20px 20px;
+      position: relative;
+      user-select: none;
+    }
+
+    canvas {
+      position: absolute;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background: transparent;
+    }
+
+    #toolbar {
+      margin-top: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #toolbar button {
+      padding: 8px 12px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background-color: #eee;
+      transition: background-color 0.3s;
+      position: relative;
+    }
+
+    #toolbar button:hover {
+      background-color: #ddd;
+    }
+
+    /* 도구 선택 드롭다운 스타일 */
+    #toolDropdown {
+      position: absolute;
+      top: 40px;
+      left: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 100;
+      width: 150px;
+    }
+
+    #toolDropdown div {
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #toolDropdown div:hover {
+      background-color: #eee;
+    }
+
+    /* 색상 팔레트 */
+    #colorPicker {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: 10px;
+    }
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .color-swatch.selected {
+      border-color: #333;
+    }
+
+    /* 이미지 삽입 모달 */
+    #imageInsertModal {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: none;
+      z-index: 200;
+      width: 300px;
+    }
+    #imageInsertModal h3 {
+      margin: 0 0 10px;
+      font-size: 1.2rem;
+    }
+    #imageInsertModal .sticker-list {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    #imageInsertModal .sticker-list img {
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      transition: border-color 0.3s;
+    }
+    #imageInsertModal .sticker-list img:hover {
+      border-color: #2196F3;
+    }
+    #imageInsertModal button.close-modal {
+      margin-top: 10px;
+      padding: 6px 12px;
+      border: none;
+      background-color: #f44336;
+      color: white;
+      cursor: pointer;
+      border-radius: 6px;
+      float: right;
+    }
+
+    #chatArea {
+      width: 280px;
+      background: #fff;
+      border-left: 1px solid #ccc;
+      display: flex;
+      flex-direction: column;
+    }
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    #chatInput {
+      display: flex;
+      padding: 8px;
+      border-top: 1px solid #ccc;
+    }
+    #chatInput input {
+      flex: 1;
+      padding: 6px;
+    }
+    #chatInput button {
+      padding: 6px 12px;
+    }
+
+    #createRoomBtn {
+      margin: 10px;
+      padding: 8px 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      border: none;
+      background-color: #2196F3;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="createRoomBtn" style="display:none;">새 방 만들기</button>
+
+  <div id="main" style="display:none;">
+    <div id="header">
+      <h2>🔥 그림판 - 방 제목</h2>
+      <button id="closeBtn">❌</button>
+    </div>
+    <div id="canvasContainer">
+      <canvas id="drawCanvas"></canvas>
+    </div>
+    <div id="toolbar">
+      <button id="penBtn">✏️ 펜 ▼</button>
+      <button id="eraserBtn">🧽 지우개</button>
+      <button id="addImageBtn">➕ 이미지삽입</button>
+      <button id="permissions">⚙️ 권한 설정</button>
+
+        <!-- 굵기 조절 슬라이더 -->
+  <label for="lineWidthRange" style="margin-left:10px;">굵기:</label>
+  <input type="range" id="lineWidthRange" min="1" max="50" value="2" step="1" style="vertical-align:middle;">
+
+
+      <!-- 도구 드롭다운 -->
+      <div id="toolDropdown">
+        <div data-tool="pencil">✏️ 연필</div>
+        <div data-tool="highlighter">🖍️ 하이라이터</div>
+        <div data-tool="brush">🖌️ 붓</div>
+      </div>
+
+      <!-- 색상 선택 -->
+      <div id="colorPicker">
+        <div class="color-swatch selected" style="background:#000000" data-color="#000000"></div>
+        <div class="color-swatch" style="background:#ff0000" data-color="#ff0000"></div>
+        <div class="color-swatch" style="background:#00ff00" data-color="#00ff00"></div>
+        <div class="color-swatch" style="background:#0000ff" data-color="#0000ff"></div>
+        <div class="color-swatch" style="background:#ffff00" data-color="#ffff00"></div>
+        <div class="color-swatch" style="background:#ff00ff" data-color="#ff00ff"></div>
+        <div class="color-swatch" style="background:#00ffff" data-color="#00ffff"></div>
+        <div class="color-swatch" style="background:#ffffff; border: 1px solid #ccc;" data-color="#ffffff"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatArea" style="display:none;">
+    <div id="chatMessages"></div>
+    <div id="chatInput">
+      <input type="text" id="chatText" placeholder="메시지 입력..." />
+      <button id="sendChat">⬆️</button>
+    </div>
+  </div>
+
+  <!-- 이미지 삽입 모달 -->
+  <div id="imageInsertModal">
+    <h3>이미지(스티커) 선택</h3>
+    <div class="sticker-list">
+      <img src="https://i.imgur.com/6YVXLhM.png" alt="스티커1" data-url="https://i.imgur.com/6YVXLhM.png" />
+      <img src="https://i.imgur.com/6WZ4L03.png" alt="스티커2" data-url="https://i.imgur.com/6WZ4L03.png" />
+      <img src="https://i.imgur.com/JkZclLk.png" alt="스티커3" data-url="https://i.imgur.com/JkZclLk.png" />
+    </div>
+    <button class="close-modal">닫기</button>
+  </div>
+
+  
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDwTegUMVEfiLymObTxz4Camhtb84RkUtw",
+  authDomain: "draw-f2d10.firebaseapp.com",
+  databaseURL: "https://draw-f2d10-default-rtdb.firebaseio.com",
+  projectId: "draw-f2d10",
+  storageBucket: "draw-f2d10.appspot.com",
+  messagingSenderId: "177556350348",
+  appId: "1:177556350348:web:d8b35cdc76f7b68fa3e2a9"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const urlParams = new URLSearchParams(window.location.search);
+const roomId = urlParams.get('roomId');
+
+let currentUser = null;
+let myPermissions = { draw: false, erase: false }; // ← 여기에 추가
+
+
+const createRoomBtn = document.getElementById('createRoomBtn');
+const mainDiv = document.getElementById('main');
+const chatArea = document.getElementById('chatArea');
+const permBtn = document.getElementById('permissions');
+const toolDropdown = document.getElementById('toolDropdown');
+const penBtn = document.getElementById('penBtn');
+const eraserBtn = document.getElementById('eraserBtn');
+const addImageBtn = document.getElementById('addImageBtn');
+const colorPicker = document.getElementById('colorPicker');
+const imageInsertModal = document.getElementById('imageInsertModal');
+const closeBtn = document.getElementById('closeBtn');
+
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+
+let drawing = false;
+let currentTool = 'pencil'; // pencil, highlighter, brush, eraser
+let currentColor = '#000000';
+let lastPos = null;
+
+function resizeCanvas() {
+  const container = canvas.parentElement;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+
+  // 실제 픽셀 크기 지정
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  // CSS 크기 지정 (화면 표시 크기)
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  // 렌더링 컨텍스트 초기화 및 고해상도 대응 스케일링
+  ctx.resetTransform();  // 기존 변환 초기화 (크롬, 최신 브라우저 지원)
+  ctx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('DOMContentLoaded', resizeCanvas); // DOM 완성 시 초기화
+
+function resizeCanvasAndRedraw() {
+  const container = canvas.parentElement;
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+
+  // 캔버스 크기 세팅 (실제 픽셀 수)
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  // CSS 크기
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  ctx.resetTransform();
+  ctx.scale(dpr, dpr);
+
+  // 캔버스 클리어
+  ctx.clearRect(0, 0, width, height);
+
+  // 캐싱된 그리기 데이터(배열 등)가 있다면 여기서 다시 그리기
+  redrawAllFromCache();
+}
+
+// 도구 드롭다운 토글
+penBtn.addEventListener('click', () => {
+  toolDropdown.style.display = toolDropdown.style.display === 'block' ? 'none' : 'block';
+  eraserBtn.classList.remove('selected');
+});
+
+// 도구 선택 이벤트
+toolDropdown.querySelectorAll('div').forEach(div => {
+  div.addEventListener('click', () => {
+    currentTool = div.dataset.tool;
+    penBtn.textContent = {
+      pencil: '✏️ 연필 ▼',
+      highlighter: '🖍️ 하이라이터 ▼',
+      brush: '🖌️ 붓 ▼',
+    }[currentTool];
+    toolDropdown.style.display = 'none';
+    eraserBtn.classList.remove('selected');
+  });
+});
+
+// 지우개 버튼
+eraserBtn.addEventListener('click', () => {
+  currentTool = 'eraser';
+  penBtn.textContent = '✏️ 펜 ▼';
+  eraserBtn.classList.add('selected');
+  toolDropdown.style.display = 'none';
+});
+
+// 색상 선택
+colorPicker.querySelectorAll('.color-swatch').forEach(swatch => {
+  swatch.addEventListener('click', () => {
+    colorPicker.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    currentColor = swatch.dataset.color;
+  });
+});
+
+// 이미지 삽입 모달 열기
+addImageBtn.addEventListener('click', () => {
+  imageInsertModal.style.display = 'block';
+});
+imageInsertModal.querySelector('.close-modal').addEventListener('click', () => {
+  imageInsertModal.style.display = 'none';
+});
+
+// 이미지 삽입 처리
+imageInsertModal.querySelectorAll('.sticker-list img').forEach(img => {
+  img.addEventListener('click', () => {
+    const imageUrl = img.dataset.url;
+
+    // 이미지 객체 생성
+    const imageObj = new Image();
+    imageObj.src = imageUrl;
+
+    imageObj.onload = () => {
+      // 방 권한 체크 후 삽입
+      db.ref(`rooms/${roomId}/members/${currentUser.uid}`).once('value').then(snap => {
+        const perms = snap.val();
+        if (!perms || !perms.draw) {
+          alert('그리기 권한이 없습니다.');
+          return;
+        }
+
+        // 캔버스 중앙에 이미지 삽입 좌표 계산
+        const x = canvas.width / 2 - imageObj.width / 2;
+        const y = canvas.height / 2 - imageObj.height / 2;
+
+        ctx.drawImage(imageObj, x, y);
+
+        // DB에 이미지 삽입 정보 저장
+        db.ref(`rooms/${roomId}/images`).push({
+          url: imageUrl,
+          x, y,
+          width: imageObj.width,
+          height: imageObj.height,
+          userId: currentUser.uid,
+          timestamp: Date.now()
+        });
+
+        imageInsertModal.style.display = 'none';
+      });
+    };
+  });
+});
+
+// 그리기 함수
+function draw(e) {
+  if (!drawing || !lastPos) return;
+
+  if (currentTool === 'eraser' && !myPermissions.erase) return;
+  if (currentTool !== 'eraser' && !myPermissions.draw) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  ctx.lineCap = 'round';
+
+  if (currentTool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out'; // 투명하게 지우기
+    ctx.lineWidth = currentLineWidth;
+    ctx.strokeStyle = 'rgba(0,0,0,1)'; // 색상은 어차피 안 보임
+    ctx.globalAlpha = 1;
+  } else {
+    ctx.globalCompositeOperation = 'source-over'; // 기본 그리기 모드
+    ctx.globalAlpha = currentTool === 'highlighter' ? 0.3 : (currentTool === 'brush' ? 0.8 : 1);
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = currentLineWidth;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(lastPos.x, lastPos.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  const from = { ...lastPos };
+  const to = { x, y };
+  lastPos = to;
+
+  // DB 저장
+  db.ref(`rooms/${roomId}/drawings`).push({
+    tool: currentTool,
+    color: currentTool === 'eraser' ? null : currentColor,
+    lineWidth: ctx.lineWidth,
+    from,
+    to,
+    userId: currentUser.uid,
+    timestamp: Date.now()
+  });
+}
+
+
+canvas.addEventListener('mousedown', (e) => {
+  console.log("✅ 마우스 눌림!");
+  console.log("e.clientX:", e.clientX, "e.clientY:", e.clientY);
+
+  drawing = true;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  lastPos = { x, y };
+
+  draw(e); // 첫 점 그리기
+});
+
+canvas.addEventListener('mousemove', draw);
+
+canvas.addEventListener('mouseup', () => {
+  drawing = false;
+  lastPos = null;
+});
+
+canvas.addEventListener('mouseout', () => {
+  drawing = false;
+  lastPos = null;
+});
+
+// 권한에 따른 버튼 활성화/비활성화
+function updateToolButtons(perms) {
+  penBtn.disabled = !perms.draw;
+  eraserBtn.disabled = !perms.erase;
+
+  // 현재 툴이 펜이고 권한이 없으면 자동으로 지우개로 전환
+  if (!perms.draw && perms.erase) {
+    if (currentTool !== 'eraser') {
+      currentTool = 'eraser';
+      penBtn.textContent = '✏️ 펜 ▼';
+      eraserBtn.classList.add('selected');
+      penBtn.classList.remove('selected');
+    }
+  } else if (perms.draw) {
+    // 그리기 권한이 있으면 지우개 선택 해제, 펜 선택 유지
+    eraserBtn.classList.remove('selected');
+    penBtn.classList.add('selected');
+  } else {
+    // 그리기 권한 없고 지우개 권한도 없으면 버튼 비활성화, 선택 표시 제거
+    eraserBtn.classList.remove('selected');
+    penBtn.classList.remove('selected');
+  }
+}
+
+
+// 닫기 버튼 클릭 이벤트: 방 데이터 삭제, index.html 이동
+closeBtn.addEventListener('click', () => {
+  if (!roomId) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  // 방 데이터 완전 삭제 (drawings, images, members, 등 모두 포함)
+  db.ref(`rooms/${roomId}`).remove()
+    .then(() => {
+      alert('방이 종료되어 모든 사용자가 퇴장 처리되었습니다.');
+      window.location.href = 'index.html';
+    })
+    .catch(err => {
+      alert('방 종료 중 오류가 발생했습니다: ' + err.message);
+    });
+});
+
+// 로그인 및 방 입장 처리
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) {
+    alert('로그인이 필요합니다. 로그인 후 다시 시도하세요.');
+    return;
+  }
+  currentUser = user;
+
+  if (!roomId) {
+    createRoomBtn.style.display = 'block';
+    mainDiv.style.display = 'none';
+    chatArea.style.display = 'none';
+    return;
+  }
+
+  createRoomBtn.style.display = 'none';
+  mainDiv.style.display = 'flex';
+  chatArea.style.display = 'flex';
+
+  const name = prompt("사용할 이름을 입력하세요:") || "사용자";
+
+  // 멤버로 방 입장 (기본 권한 draw/erase false, chat true)
+  db.ref(`rooms/${roomId}/members/${currentUser.uid}`).set({
+    name: name,
+    draw: true,
+    erase: true,
+    chat: true
+  });
+
+  // 방이 없으면 생성 (hostId 설정)
+  db.ref(`rooms/${roomId}`).once("value").then(snapshot => {
+    if (!snapshot.exists()) {
+      return db.ref(`rooms/${roomId}`).set({
+        hostId: currentUser.uid,
+        createdAt: Date.now()
+      });
+    }
+  }).then(() => {
+    // 방 정보 로드 및 권한 버튼 표시
+    db.ref(`rooms/${roomId}`).once('value').then(snap => {
+      const roomData = snap.val();
+      const isHost = roomData.hostId === currentUser.uid;
+      permBtn.style.display = isHost ? 'block' : 'none';
+
+      if (isHost) {
+        permBtn.onclick = () => {
+          db.ref(`rooms/${roomId}/members`).once('value').then(snap => {
+            const members = snap.val();
+            const list = Object.entries(members).map(([uid, perms], i) =>
+              `${i + 1}. ${perms.name} → 🖌️ ${perms.draw ? 'O' : 'X'} / 🧽 ${perms.erase ? 'O' : 'X'}`
+            ).join('\n');
+            const input = prompt(`권한을 변경할 대상을 선택하세요:\n${list}`);
+            const index = parseInt(input) - 1;
+            const uids = Object.keys(members);
+            if (isNaN(index) || index < 0 || index >= uids.length) return;
+            const selectedUid = uids[index];
+            const perms = members[selectedUid];
+            db.ref(`rooms/${roomId}/members/${selectedUid}`).update({
+              draw: !perms.draw,
+              erase: !perms.erase
+            }).then(() => alert(`${perms.name}의 권한이 변경되었습니다.`));
+          });
+        };
+      }
+    });
+
+    // 자신의 권한 실시간 리스너
+db.ref(`rooms/${roomId}/members/${currentUser.uid}`).on("value", snap => {
+  const perms = snap.val();
+  if (!perms) return;
+  myPermissions = perms; // ← 캐싱
+  canvas.style.pointerEvents = (perms.draw || perms.erase) ? 'auto' : 'none';
+  updateToolButtons(perms);
+});
+
+    // 기존 그리기 및 이미지 불러오기
+    loadExistingDrawings();
+  });
+});
+
+const drawingsCache = [];
+const imagesCache = [];
+
+db.ref(`rooms/${roomId}/drawings`).on('child_added', snap => {
+  const data = snap.val();
+  if (!data) return;
+  drawingsCache.push(data);
+  // 리렌더링은 debounce 처리 또는 따로 컨트롤
+  scheduleRedraw();
+});
+
+db.ref(`rooms/${roomId}/images`).on('child_added', snap => {
+  const data = snap.val();
+  if (!data) return;
+  imagesCache.push(data);
+  scheduleRedraw();
+});
+
+let redrawTimeout = null;
+function scheduleRedraw() {
+  if (redrawTimeout) clearTimeout(redrawTimeout);
+  redrawTimeout = setTimeout(() => {
+    resizeCanvasAndRedraw();
+  }, 100); // 0.1초 후에 그리기 실행 (리사이즈 시 중복 방지)
+}
+
+function redrawAllFromCache() {
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+
+  ctx.clearRect(0, 0, width, height);
+
+  drawingsCache.forEach(data => {
+    ctx.lineCap = 'round';
+
+    if (data.tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = data.lineWidth || 20;
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = data.tool === 'highlighter' ? 0.3 : 1;
+      ctx.strokeStyle = data.color || '#000';
+      ctx.lineWidth = data.lineWidth || 2;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(data.from.x, data.from.y);
+    ctx.lineTo(data.to.x, data.to.y);
+    ctx.stroke();
+  });
+
+  // 이미지 그리기 (기존 코드 유지)
+  imagesCache.forEach(imgData => {
+    const imageObj = new Image();
+    imageObj.src = imgData.url;
+    imageObj.onload = () => {
+      ctx.drawImage(imageObj, imgData.x, imgData.y, imgData.width, imgData.height);
+    };
+  });
+}
+
+
+// 채팅 보내기
+document.getElementById('sendChat').addEventListener('click', sendChat);
+document.getElementById('chatText').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChat();
+});
+
+function sendChat() {
+  const input = document.getElementById('chatText');
+  const text = input.value.trim();
+  if (!text || !roomId || !currentUser) return;
+
+  db.ref(`rooms/${roomId}/chats`).push({
+    uid: currentUser.uid,
+    name: myPermissions?.name || '익명',
+    text: text,
+    timestamp: Date.now()
+  });
+
+  input.value = '';
+}
+
+// 채팅 수신
+db.ref(`rooms/${roomId}/chats`).on('child_added', snap => {
+  const data = snap.val();
+  if (!data || !data.text) return;
+
+  const msgDiv = document.createElement('div');
+  msgDiv.style.marginBottom = '8px';
+  msgDiv.style.wordBreak = 'break-word';
+  msgDiv.innerHTML = `<strong>${data.name}:</strong> ${data.text}`;
+  document.getElementById('chatMessages').appendChild(msgDiv);
+
+  // 자동 스크롤
+  const chatBox = document.getElementById('chatMessages');
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+const defaultLineWidths = {
+  pencil: 2,
+  highlighter: 15,
+  brush: 8,
+  eraser: 20
+};
+
+// 현재 굵기 값 변수 (초기값은 pencil 기준)
+let currentLineWidth = defaultLineWidths.pencil;
+
+const lineWidthRange = document.getElementById('lineWidthRange');
+
+// 슬라이더 값 변경 시 처리
+lineWidthRange.addEventListener('input', () => {
+  currentLineWidth = parseInt(lineWidthRange.value, 10);
+});
+
+// 도구 변경 시 슬라이더 초기값 세팅 함수
+function updateLineWidthSlider(tool) {
+  if (tool === 'eraser') {
+    lineWidthRange.min = 5;
+    lineWidthRange.max = 150;
+    lineWidthRange.step = 1;
+    currentLineWidth = defaultLineWidths.eraser;
+    lineWidthRange.value = currentLineWidth;
+  } else if (tool === 'highlighter') {
+    lineWidthRange.min = 5;
+    lineWidthRange.max = 50;
+    lineWidthRange.step = 1;
+    currentLineWidth = defaultLineWidths.highlighter;
+    lineWidthRange.value = currentLineWidth;
+  } else if (tool === 'brush') {
+    lineWidthRange.min = 1;
+    lineWidthRange.max = 50;
+    lineWidthRange.step = 1;
+    currentLineWidth = defaultLineWidths.brush;
+    lineWidthRange.value = currentLineWidth;
+  } else {
+    // pencil 포함 기타 도구
+    lineWidthRange.min = 1;
+    lineWidthRange.max = 20;
+    lineWidthRange.step = 1;
+    currentLineWidth = defaultLineWidths.pencil;
+    lineWidthRange.value = currentLineWidth;
+  }
+}
+
+// 초기 툴별 굵기 세팅
+updateLineWidthSlider(currentTool);
+
+// 도구 드롭다운 선택 시
+toolDropdown.querySelectorAll('div').forEach(div => {
+  div.addEventListener('click', () => {
+    currentTool = div.dataset.tool;
+    penBtn.textContent = {
+      pencil: '✏️ 연필 ▼',
+      highlighter: '🖍️ 하이라이터 ▼',
+      brush: '🖌️ 붓 ▼',
+    }[currentTool];
+    toolDropdown.style.display = 'none';
+    eraserBtn.classList.remove('selected');
+
+    // 슬라이더 굵기값 업데이트
+    updateLineWidthSlider(currentTool);
+  });
+});
+
+// 지우개 버튼 클릭 시
+eraserBtn.addEventListener('click', () => {
+  currentTool = 'eraser';
+  penBtn.textContent = '✏️ 펜 ▼';
+  eraserBtn.classList.add('selected');
+  toolDropdown.style.display = 'none';
+
+  // 슬라이더 굵기값 업데이트 (지우개용)
+  updateLineWidthSlider('eraser');
+});
+
+// draw 함수 내에서 ctx.lineWidth를 currentLineWidth 값 사용
+function draw(e) {
+  if (!drawing || !lastPos) return;
+
+  if (currentTool === 'eraser' && !myPermissions.erase) return;
+  if (currentTool !== 'eraser' && !myPermissions.draw) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  ctx.lineCap = 'round';
+
+  switch (currentTool) {
+    case 'pencil':
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = currentLineWidth;
+      break;
+    case 'highlighter':
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = currentLineWidth;
+      break;
+    case 'brush':
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = currentLineWidth;
+      break;
+    case 'eraser':
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#f5f7fb';
+      ctx.lineWidth = currentLineWidth;
+      break;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(lastPos.x, lastPos.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  const from = { ...lastPos };
+  const to = { x, y };
+  lastPos = to;
+
+  // DB 저장
+  db.ref(`rooms/${roomId}/drawings`).push({
+    tool: currentTool,
+    color: currentTool === 'eraser' ? null : currentColor,
+    lineWidth: ctx.lineWidth,
+    from,
+    to,
+    userId: currentUser.uid,
+    timestamp: Date.now()
+  });
+}
+
+  </script>
+
+</body>
+</html>
